@@ -27,7 +27,7 @@ const LS_LOCAL_CONTACTS = "memory_app_local_contacts";
 /* ─────────────────────────────────────────
    STATE
 ───────────────────────────────────────── */
-let supabase           = null;
+let _sb           = null;
 let memories           = [];
 let contacts           = [];         // read-only từ contacts app
 let filteredMemories   = [];
@@ -139,10 +139,10 @@ function loadConfigFromLS() {
 }
 
 function initSupabase() {
-  supabase = null;
+  _sb = null;
   if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) return;
   try {
-    supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+    _sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
   } catch (_) {}
 }
 
@@ -242,9 +242,9 @@ async function loadAll() {
 }
 
 async function loadMemories() {
-  if (supabase) {
+  if (_sb) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await _sb
         .from(CONFIG.TABLE_MEMORIES).select("*")
         .eq("id_user", CONFIG.USER_ID).eq("id_app", CONFIG.APP_ID)
         .order("created_at", { ascending: false });
@@ -258,9 +258,9 @@ async function loadMemories() {
    - CONTACTS_APP_ID set   → filter id_user + id_app
    - CONTACTS_APP_ID unset → filter id_user only (tất cả app của user) */
 async function loadContacts() {
-  if (supabase) {
+  if (_sb) {
     try {
-      let q = supabase
+      let q = _sb
         .from(CONFIG.TABLE_CONTACTS)
         .select("id, name, org, phones, emails")
         .eq("id_user", CONFIG.USER_ID);
@@ -521,13 +521,13 @@ Format: {"keywords":[],"tags":[],"emotions":[],"people":[],"orgs":[]}
     let matchedContactIds = matchContactsByName(pNames, orgs);
 
     // Supplement from Supabase if contacts cache is partial
-    if (supabase && (pNames.length || orgs.length)) {
+    if (_sb && (pNames.length || orgs.length)) {
       const orParts = [
         ...pNames.map(p => `name.ilike.%${p}%`),
         ...orgs.map(o => `org.ilike.%${o}%`),
       ].slice(0, 10); // cap to avoid Supabase OR limit
       if (orParts.length) {
-        let cq = supabase.from(CONFIG.TABLE_CONTACTS).select("id")
+        let cq = _sb.from(CONFIG.TABLE_CONTACTS).select("id")
           .eq("id_user", CONFIG.USER_ID);
         const cAppId = contactsAppId();
         if (cAppId) cq = cq.eq("id_app", cAppId);
@@ -541,9 +541,9 @@ Format: {"keywords":[],"tags":[],"emotions":[],"people":[],"orgs":[]}
     // Step 2: candidate pool — Supabase keyword search + full local scan
     let candidates = [...memories]; // start with all local
 
-    if (supabase && keywords.length) {
+    if (_sb && keywords.length) {
       const orParts = keywords.map(k => `content.ilike.%${k}%`);
-      const { data } = await supabase
+      const { data } = await _sb
         .from(CONFIG.TABLE_MEMORIES).select("*")
         .eq("id_user", CONFIG.USER_ID).eq("id_app", CONFIG.APP_ID)
         .or(orParts.join(","))
@@ -956,15 +956,15 @@ async function saveMemory() {
   };
 
   try {
-    if (supabase) {
+    if (_sb) {
       if (editingMemoryId) {
-        const { error } = await supabase.from(CONFIG.TABLE_MEMORIES)
+        const { error } = await _sb.from(CONFIG.TABLE_MEMORIES)
           .update(payload).eq("id", editingMemoryId).eq("id_user", CONFIG.USER_ID);
         if (error) throw error;
         const idx = memories.findIndex(m => m.id === editingMemoryId);
         if (idx >= 0) memories[idx] = { ...memories[idx], ...payload };
       } else {
-        const { data, error } = await supabase.from(CONFIG.TABLE_MEMORIES)
+        const { data, error } = await _sb.from(CONFIG.TABLE_MEMORIES)
           .insert([payload]).select().single();
         if (error) throw error;
         memories.unshift(data);
@@ -1062,8 +1062,8 @@ async function deleteMemoryFromModal() {
   if (!confirm("Xoá ký ức này?")) return;
   const id = currentModalMemory.id;
   try {
-    if (supabase) {
-      const { error } = await supabase.from(CONFIG.TABLE_MEMORIES)
+    if (_sb) {
+      const { error } = await _sb.from(CONFIG.TABLE_MEMORIES)
         .delete().eq("id", id).eq("id_user", CONFIG.USER_ID);
       if (error) throw error;
     }
