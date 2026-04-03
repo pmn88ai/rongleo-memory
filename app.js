@@ -59,25 +59,10 @@ function contactsAppId() {
   return CONFIG.CONTACTS_APP_ID || null;
 }
 
-/* ─────────────────────────────────────────
-   g(id) — safe getElementById wrapper
-   Returns element if found, or a no-op stub so that
-   g("x").value = "y" and g("x").classList.add("z")
-   never throw even if element is absent.
-───────────────────────────────────────── */
-const _noopEl = new Proxy({}, {
-  get(_, prop) {
-    // Return a no-op function for any method call, empty string for .value etc.
-    if (prop === "value" || prop === "textContent" || prop === "innerHTML") return "";
-    if (prop === "checked") return false;
-    if (prop === "style")   return new Proxy({}, { set() { return true; } });
-    if (prop === "classList") return { add() {}, remove() {}, toggle() {} };
-    return () => {};
-  },
-  set() { return true; },
-});
+/* g(id) — shorthand for getElementById. Returns the element or null.
+   Callers must check for null before use. */
 function g(id) {
-  return document.getElementById(id) || _noopEl;
+  return document.getElementById(id);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -166,9 +151,17 @@ function initSupabase() {
 ═══════════════════════════════════════════════════════════ */
 function navigate(screenId, btn) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  document.getElementById("screen-" + screenId).classList.add("active");
+
+  const screen = document.getElementById("screen-" + screenId);
+  if (!screen) {
+    console.error("[navigate] Screen not found:", screenId);
+    return;
+  }
+  screen.classList.add("active");
+
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
+
   if (screenId === "list")     { renderMemoriesList(); buildFilterRow(); }
   if (screenId === "home")     { updateStats(); }
   if (screenId === "contacts") { renderContactsGrid(); }
@@ -626,36 +619,41 @@ function openContactDetail(contactId) {
   if (!c) return;
   const related = memories.filter(m => (m.related_people_ids || []).includes(contactId));
 
-  // set avatar initial
   const avatarEl = document.getElementById("cdAvatar");
   if (avatarEl) avatarEl.textContent = c.name.charAt(0).toUpperCase();
 
-  g("cdName").textContent  = c.name;
+  const cdName = document.getElementById("cdName");
+  if (cdName) cdName.textContent = c.name;
+
   const orgEl = document.getElementById("cdOrg");
-  orgEl.textContent   = c.org || "";
-  orgEl.style.display = c.org ? "" : "none";
-  g("cdCount").textContent = `${related.length} ký ức liên quan`;
+  if (orgEl) { orgEl.textContent = c.org || ""; orgEl.style.display = c.org ? "" : "none"; }
+
+  const cdCount = document.getElementById("cdCount");
+  if (cdCount) cdCount.textContent = `${related.length} ký ức liên quan`;
 
   const list = document.getElementById("cdMemories");
-  list.innerHTML = related.length
-    ? related.map(m => {
-        const snippet = m.content.length > 100 ? m.content.slice(0, 100) + "…" : m.content;
-        const dateStr = formatDate(m);
-        const tags    = (m.tags || []).slice(0, 2).map(t => `<span class="tag">${esc(t)}</span>`).join("");
-        return `<div class="memory-card" onclick="closeContactDetail();openMemoryModal('${m.id}')">
-          <div class="content">${esc(snippet)}</div>
-          <div class="meta">${tags}${dateStr ? `<span class="memory-date">${dateStr}</span>` : ""}</div>
-        </div>`;
-      }).join("")
-    : `<p style="color:var(--muted);font-size:0.85rem;font-style:italic;padding:12px 0">Chưa có ký ức nào gắn với người này.</p>`;
+  if (list) {
+    list.innerHTML = related.length
+      ? related.map(m => {
+          const snippet = m.content.length > 100 ? m.content.slice(0, 100) + "…" : m.content;
+          const dateStr = formatDate(m);
+          const tags    = (m.tags || []).slice(0, 2).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+          return `<div class="memory-card" onclick="closeContactDetail();openMemoryModal('${m.id}')">
+            <div class="content">${esc(snippet)}</div>
+            <div class="meta">${tags}${dateStr ? `<span class="memory-date">${dateStr}</span>` : ""}</div>
+          </div>`;
+        }).join("")
+      : `<p style="color:var(--muted);font-size:0.85rem;font-style:italic;padding:12px 0">Chưa có ký ức nào gắn với người này.</p>`;
+  }
 
-  g("contactDetailModal").classList.add("show");
+  const modal = document.getElementById("contactDetailModal");
+  if (modal) modal.classList.add("show");
 }
 
 function closeContactDetail(e) {
-  if (!e || e.target === document.getElementById("contactDetailModal")) {
-    g("contactDetailModal").classList.remove("show");
-  }
+  const modal = document.getElementById("contactDetailModal");
+  if (!modal) return;
+  if (!e || e.target === modal) modal.classList.remove("show");
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -723,7 +721,8 @@ function togglePersonPick(id) {
   } else {
     formState.people.push(id);
   }
-  g("personSearchInput").value = "";
+  const psi = document.getElementById("personSearchInput");
+  if (psi) psi.value = "";
   personSearch = "";
   renderPersonPicker();
 }
@@ -733,6 +732,7 @@ function togglePersonPick(id) {
 ═══════════════════════════════════════════════════════════ */
 function buildEmotionGrid() {
   const grid = document.getElementById("emotionGrid");
+  if (!grid) return;
   grid.innerHTML = EMOTION_LIST.map(e =>
     `<button type="button" class="emotion-btn" data-emotion="${e}" onclick="toggleEmotion('${e}',this)">${e}</button>`
   ).join("");
@@ -750,6 +750,7 @@ function toggleEmotion(e, btn) {
 
 function setupTagInput() {
   const input = document.getElementById("tagRawInput");
+  if (!input) return;
   input.addEventListener("keydown", e => {
     if ((e.key === "Enter" || e.key === ",") && input.value.trim()) {
       e.preventDefault();
@@ -774,8 +775,9 @@ function removeTag(t) {
 }
 
 function renderTagWrap() {
-  const wrap = document.getElementById("tagInputWrap");
+  const wrap  = document.getElementById("tagInputWrap");
   const input = document.getElementById("tagRawInput");
+  if (!wrap || !input) return;
   wrap.innerHTML = "";
   formState.tags.forEach(t => {
     const span = document.createElement("span");
@@ -788,20 +790,23 @@ function renderTagWrap() {
 
 function resetAddForm() {
   editingMemoryId = null;
-  g("memContent").value = "";
-  g("memYear").value    = "";
-  g("memDate").value    = "";
-  g("memLesson").value  = "";
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal("memContent", ""); setVal("memYear", ""); setVal("memDate", ""); setVal("memLesson", "");
   formState.tags = []; formState.emotions = []; formState.people = [];
   renderTagWrap(); buildEmotionGrid();
   personSearch = "";
-  g("personSearchInput").value = "";
-  g("personPickerDropdown").style.display = "none";
+  setVal("personSearchInput", "");
+  const dd = document.getElementById("personPickerDropdown");
+  if (dd) dd.style.display = "none";
   renderPersonPicker();
-  g("aiSuggestBox").classList.remove("show");
-  g("addFormTitle").textContent  = "Tạo ký ức mới";
-  g("btnSaveMemory").textContent = "Lưu ký ức";
-  g("btnCancelEdit").style.display = "none";
+  const suggestBox = document.getElementById("aiSuggestBox");
+  if (suggestBox) suggestBox.classList.remove("show");
+  const titleEl  = document.getElementById("addFormTitle");
+  const saveBtn  = document.getElementById("btnSaveMemory");
+  const cancelBtn = document.getElementById("btnCancelEdit");
+  if (titleEl)   titleEl.textContent  = "Tạo ký ức mới";
+  if (saveBtn)   saveBtn.textContent  = "Lưu ký ức";
+  if (cancelBtn) cancelBtn.style.display = "none";
 }
 
 function cancelEdit() {
@@ -817,11 +822,13 @@ function setupAISuggest() {
   const btnEl = document.getElementById("btnAISuggest");
   if (!btnEl) return;
   btnEl.addEventListener("click", async () => {
-  const content = g("memContent").value.trim();
+  const memContentEl = document.getElementById("memContent");
+  const content = memContentEl ? memContentEl.value.trim() : "";
   if (!content) { showToast("Nhập nội dung ký ức trước"); return; }
   if (!CONFIG.GROQ_API_KEY || !CONFIG.ENABLE_AI) { showToast("Chưa cấu hình Groq"); return; }
 
   const btn = document.getElementById("btnAISuggest");
+  if (!btn) return;
   btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Đang phân tích…';
   btn.disabled  = true;
 
@@ -846,7 +853,9 @@ Format:
     const parsed = safeParseJSON(res);
     if (!parsed) throw new Error("parse fail");
 
-    g("aiSuggestBox").classList.add("show");
+    const suggestBox = document.getElementById("aiSuggestBox");
+    if (suggestBox) suggestBox.classList.add("show");
+
     renderSuggestChips("suggestTags", parsed.tags || [], t => addTag(t));
     renderSuggestChips("suggestEmotions", parsed.emotions || [], e => {
       if (!formState.emotions.includes(e)) {
@@ -858,28 +867,35 @@ Format:
     });
 
     const lessonWrap = document.getElementById("suggestLessonWrap");
-    if (parsed.lesson) {
-      lessonWrap.style.display = "";
-      renderSuggestChips("suggestLesson", [parsed.lesson], l => {
-        g("memLesson").value = l;
-      });
-    } else {
-      lessonWrap.style.display = "none";
+    if (lessonWrap) {
+      if (parsed.lesson) {
+        lessonWrap.style.display = "";
+        renderSuggestChips("suggestLesson", [parsed.lesson], l => {
+          const memLesson = document.getElementById("memLesson");
+          if (memLesson) memLesson.value = l;
+        });
+      } else {
+        lessonWrap.style.display = "none";
+      }
     }
 
-    // people suggestion — dùng matchContactsByName (exact first, then includes, max 3)
     const suggestPeopleWrap = document.getElementById("suggestPeopleWrap");
     const suggestedPeopleIds = matchContactsByName(parsed.people || [], []);
     const matchedPeople = [...suggestedPeopleIds]
       .map(id => contacts.find(c => c.id === id))
       .filter(Boolean);
-    if (matchedPeople.length) {
-      suggestPeopleWrap.style.display = "";
-      g("suggestPeople").innerHTML = matchedPeople.map(c =>
-        `<button type="button" class="ai-chip" onclick="applyPersonSuggest(this,'${c.id}')">👤 ${esc(c.name)}</button>`
-      ).join("");
-    } else {
-      suggestPeopleWrap.style.display = "none";
+    if (suggestPeopleWrap) {
+      if (matchedPeople.length) {
+        suggestPeopleWrap.style.display = "";
+        const suggestPeopleEl = document.getElementById("suggestPeople");
+        if (suggestPeopleEl) {
+          suggestPeopleEl.innerHTML = matchedPeople.map(c =>
+            `<button type="button" class="ai-chip" onclick="applyPersonSuggest(this,'${c.id}')">👤 ${esc(c.name)}</button>`
+          ).join("");
+        }
+      } else {
+        suggestPeopleWrap.style.display = "none";
+      }
     }
   } catch (e) {
     showToast("Lỗi AI: " + e.message);
@@ -894,7 +910,8 @@ function applyPersonSuggest(btn, contactId) {
   if (!formState.people.includes(contactId)) {
     formState.people.push(contactId);
     personSearch = "";
-    g("personSearchInput").value = "";
+    const psi = document.getElementById("personSearchInput");
+    if (psi) psi.value = "";
     renderPersonPicker();
   }
   btn.classList.add("used");
@@ -902,6 +919,7 @@ function applyPersonSuggest(btn, contactId) {
 
 function renderSuggestChips(containerId, items, onClickFn) {
   const container = document.getElementById(containerId);
+  if (!container) return;
   container.innerHTML = items.map(item =>
     `<button type="button" class="ai-chip" onclick="applySuggest(this,'${esc(item)}')">${esc(item)}</button>`
   ).join("");
@@ -918,20 +936,22 @@ function applySuggest(btn, value) {
    SAVE MEMORY
 ───────────────────────────────────────── */
 async function saveMemory() {
-  const content = g("memContent").value.trim();
+  const memContentEl = document.getElementById("memContent");
+  const content = memContentEl ? memContentEl.value.trim() : "";
   if (!content) { showToast("Nội dung không được trống"); return; }
 
   const btn = document.getElementById("btnSaveMemory");
-  btn.disabled = true; btn.textContent = "Đang lưu…";
+  if (btn) { btn.disabled = true; btn.textContent = "Đang lưu…"; }
 
+  const getVal = id => { const el = document.getElementById(id); return el ? el.value : ""; };
   const payload = {
     id_user: CONFIG.USER_ID, id_app: CONFIG.APP_ID,
     content,
-    memory_date:        g("memDate").value || null,
-    memory_year:        g("memYear").value ? parseInt(g("memYear").value) : null,
+    memory_date:        getVal("memDate") || null,
+    memory_year:        getVal("memYear") ? parseInt(getVal("memYear")) : null,
     emotions:           [...formState.emotions],
     tags:               [...formState.tags],
-    lesson:             g("memLesson").value.trim() || null,
+    lesson:             getVal("memLesson").trim() || null,
     related_people_ids: [...formState.people],
   };
 
@@ -964,7 +984,7 @@ async function saveMemory() {
   } catch (e) {
     showToast("Lỗi lưu: " + e.message);
   }
-  btn.disabled = false; btn.textContent = "Lưu ký ức";
+  if (btn) { btn.disabled = false; btn.textContent = "Lưu ký ức"; }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -974,25 +994,31 @@ function openMemoryModal(id) {
   const m = memories.find(x => x.id === id);
   if (!m) return;
   currentModalMemory = m;
-  g("modalDate").textContent = formatDate(m) || "Không rõ ngày";
-  g("modalContent").textContent = m.content;
-  g("modalLesson").innerHTML = m.lesson
-    ? `<div class="modal-lesson"><strong>💡 Bài học:</strong> ${esc(m.lesson)}</div>` : "";
+
+  const setText = (elId, val) => { const el = document.getElementById(elId); if (el) el.textContent = val; };
+  const setHTML = (elId, val) => { const el = document.getElementById(elId); if (el) el.innerHTML  = val; };
+
+  setText("modalDate", formatDate(m) || "Không rõ ngày");
+  setText("modalContent", m.content);
+  setHTML("modalLesson", m.lesson
+    ? `<div class="modal-lesson"><strong>💡 Bài học:</strong> ${esc(m.lesson)}</div>` : "");
 
   const tags     = (m.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join("");
   const emotions = (m.emotions || []).map(e => `<span class="tag emotion">${esc(e)}</span>`).join("");
-  // clickable person tags → filter by person
-  const people = resolveContacts(m.related_people_ids)
+  const people   = resolveContacts(m.related_people_ids)
     .map(c => `<span class="tag person" style="cursor:pointer" title="Xem ký ức của ${esc(c.name)}" onclick="closeModal();filterByPerson('${c.id}')">👤 ${esc(c.name)}</span>`)
     .join("");
+  setHTML("modalTags", tags + emotions + people);
 
-  g("modalTags").innerHTML = tags + emotions + people;
-  g("memoryModal").classList.add("show");
+  const modal = document.getElementById("memoryModal");
+  if (modal) modal.classList.add("show");
 }
 
 function closeModal(e) {
-  if (!e || e.target === document.getElementById("memoryModal")) {
-    g("memoryModal").classList.remove("show");
+  const modal = document.getElementById("memoryModal");
+  if (!modal) return;
+  if (!e || e.target === modal) {
+    modal.classList.remove("show");
     currentModalMemory = null;
   }
 }
@@ -1002,10 +1028,13 @@ function editMemory() {
   const m = currentModalMemory;
   closeModal();
   editingMemoryId = m.id;
-  g("memContent").value = m.content;
-  g("memYear").value    = m.memory_year || "";
-  g("memDate").value    = m.memory_date || "";
-  g("memLesson").value  = m.lesson || "";
+
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal("memContent", m.content);
+  setVal("memYear",    m.memory_year || "");
+  setVal("memDate",    m.memory_date || "");
+  setVal("memLesson",  m.lesson || "");
+
   formState.tags     = [...(m.tags || [])];
   formState.emotions = [...(m.emotions || [])];
   formState.people   = [...(m.related_people_ids || [])];
@@ -1014,11 +1043,17 @@ function editMemory() {
     document.querySelectorAll(".emotion-btn").forEach(b => { if (b.dataset.emotion === e) b.classList.add("selected"); })
   );
   personSearch = "";
-  g("personSearchInput").value = "";
+  const psi = document.getElementById("personSearchInput");
+  if (psi) psi.value = "";
   renderPersonPicker();
-  g("addFormTitle").textContent  = "Chỉnh sửa ký ức";
-  g("btnSaveMemory").textContent = "Cập nhật";
-  g("btnCancelEdit").style.display = "";
+
+  const titleEl   = document.getElementById("addFormTitle");
+  const saveBtn   = document.getElementById("btnSaveMemory");
+  const cancelBtn = document.getElementById("btnCancelEdit");
+  if (titleEl)   titleEl.textContent    = "Chỉnh sửa ký ức";
+  if (saveBtn)   saveBtn.textContent    = "Cập nhật";
+  if (cancelBtn) cancelBtn.style.display = "";
+
   navigate("add", document.querySelector('.nav-btn[data-screen="add"]'));
 }
 
@@ -1075,8 +1110,8 @@ function clearAllData() {
   memories = [];
   saveLocalFallback(LS_LOCAL_MEMORIES, []);
   updateStats(); buildFilterRow();
-  g("random-display").innerHTML =
-    `<p class="empty-state">Nhấn nút bên dưới để gợi lại một ký ức…</p>`;
+  const rd = document.getElementById("random-display");
+  if (rd) rd.innerHTML = `<p class="empty-state">Nhấn nút bên dưới để gợi lại một ký ức…</p>`;
   showToast("🗑 Đã xoá memories local");
 }
 
