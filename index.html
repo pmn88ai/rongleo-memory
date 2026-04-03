@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ký Ức · RồngLeo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&family=Be+Vietnam+Pro:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════ TOKENS ═══════════════ */
+    :root {
+      --bg:        #0d0d10;
+      --surface:   #16161c;
+      --surface2:  #1e1e27;
+      --border:    #2a2a38;
+      --text:      #e8e6f0;
+      --muted:     #7a7890;
+      --accent:    #c9a96e;
+      --accent2:   #7c6fcd;
+      --danger:    #e07070;
+      --success:   #6ec98a;
+      --radius:    14px;
+      --radius-sm: 8px;
+      --font-body: 'Be Vietnam Pro', sans-serif;
+      --font-serif:'Lora', serif;
+      --font-mono: 'DM Mono', monospace;
+      --shadow:    0 4px 24px rgba(0,0,0,0.4);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    [data-theme="light"] {
+      --bg:       #f5f3ee;
+      --surface:  #ffffff;
+      --surface2: #ededea;
+      --border:   #dedad3;
+      --text:     #1a1820;
+      --muted:    #8a8690;
+      --shadow:   0 4px 24px rgba(0,0,0,0.08);
+      --shadow-sm:0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    /* ═══════════════ RESET ═══════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--font-body);
+      min-height: 100dvh; display: flex; flex-direction: column;
+      -webkit-font-smoothing: antialiased; overflow-x: hidden;
+    }
+    button { cursor: pointer; font-family: inherit; border: none; outline: none; }
+    input, textarea, select { font-family: inherit; outline: none; border: none; background: none; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ═══════════════ LAYOUT ═══════════════ */
+    #app { flex: 1; display: flex; flex-direction: column; max-width: 600px; margin: 0 auto; width: 100%; }
+
+    /* ═══════════════ HEADER ═══════════════ */
+    .app-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--bg); z-index: 100;
+    }
+    .app-header h1 { font-family: var(--font-serif); font-size: 1.2rem; font-weight: 600; color: var(--accent); letter-spacing: 0.02em; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-icon {
+      width: 36px; height: 36px; border-radius: var(--radius-sm);
+      background: var(--surface2); color: var(--muted);
+      display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.15s;
+    }
+    .btn-icon:hover { background: var(--border); color: var(--text); }
+
+    /* ═══════════════ SCREENS ═══════════════ */
+    .screen { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
+    .screen.active { display: flex; }
+    .screen-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ═══════════════ NAV BAR ═══════════════ */
+    .nav-bar {
+      display: flex; border-top: 1px solid var(--border);
+      background: var(--bg); position: sticky; bottom: 0; z-index: 100;
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 10px 4px; font-size: 0.62rem; color: var(--muted); background: none;
+      transition: all 0.15s; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500;
+    }
+    .nav-btn .nav-icon { font-size: 1.15rem; }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn:hover { color: var(--text); }
+
+    /* ═══════════════ CARDS ═══════════════ */
+    .memory-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px; box-shadow: var(--shadow-sm); cursor: pointer; transition: all 0.2s;
+    }
+    .memory-card:hover { border-color: var(--accent2); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .memory-card .content { font-family: var(--font-serif); font-size: 0.95rem; line-height: 1.7; margin-bottom: 10px; }
+    .memory-card .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .tag {
+      font-family: var(--font-mono); font-size: 0.7rem; padding: 2px 8px;
+      border-radius: 20px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border);
+    }
+    .tag.emotion { background: rgba(124,111,205,0.12); color: var(--accent2); border-color: rgba(124,111,205,0.3); }
+    .tag.person  { background: rgba(201,169,110,0.12); color: var(--accent); border-color: rgba(201,169,110,0.3); }
+    .memory-date { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); margin-left: auto; }
+
+    /* ═══════════════ HOME ═══════════════ */
+    .random-area {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 24px; padding: 32px 20px; text-align: center;
+    }
+    .random-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 28px 24px; width: 100%; box-shadow: var(--shadow); text-align: left;
+      animation: fadeUp 0.4s ease;
+    }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    .random-card .rc-content { font-family: var(--font-serif); font-size: 1.05rem; line-height: 1.75; margin-bottom: 16px; }
+    .random-card .rc-lesson {
+      font-size: 0.82rem; color: var(--muted); font-style: italic;
+      padding-top: 12px; border-top: 1px solid var(--border); margin-bottom: 12px;
+    }
+    .random-card .rc-lesson span { color: var(--accent); }
+    .btn-recall {
+      background: linear-gradient(135deg, var(--accent), #b8935a); color: #0d0d10;
+      font-weight: 600; font-size: 0.9rem; padding: 13px 32px; border-radius: 40px;
+      box-shadow: 0 4px 20px rgba(201,169,110,0.3); transition: all 0.2s; letter-spacing: 0.03em;
+    }
+    .btn-recall:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(201,169,110,0.45); }
+    .empty-state { color: var(--muted); font-size: 0.9rem; font-style: italic; }
+    .stats-row { display: flex; gap: 12px; width: 100%; }
+    .stat-pill {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px; text-align: center;
+    }
+    .stat-pill .num { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 500; color: var(--accent); }
+    .stat-pill .label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+    /* ═══════════════ LIST ═══════════════ */
+    .search-bar { display: flex; gap: 8px; align-items: center; }
+    .search-input-wrap {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); display: flex; align-items: center;
+      padding: 0 12px; gap: 8px; transition: border-color 0.15s;
+    }
+    .search-input-wrap:focus-within { border-color: var(--accent2); }
+    .search-input-wrap input { flex: 1; padding: 10px 0; font-size: 0.9rem; color: var(--text); }
+    .search-input-wrap input::placeholder { color: var(--muted); }
+    .btn-ai-search {
+      background: var(--accent2); color: white; padding: 0 14px; height: 42px;
+      border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 500;
+      transition: opacity 0.15s; white-space: nowrap;
+    }
+    .btn-ai-search:hover { opacity: 0.85; }
+    .filter-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      white-space: nowrap; padding: 5px 12px; border-radius: 20px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); transition: all 0.15s;
+    }
+    .filter-chip.active { background: var(--accent2); color: white; border-color: var(--accent2); }
+    .filter-chip:hover { border-color: var(--accent2); color: var(--text); }
+    .memories-list { display: flex; flex-direction: column; gap: 10px; }
+    .ai-result-banner {
+      background: rgba(124,111,205,0.1); border: 1px solid rgba(124,111,205,0.3);
+      border-radius: var(--radius-sm); padding: 10px 14px; font-size: 0.78rem;
+      color: var(--accent2); display: none;
+    }
+    .ai-result-banner.show { display: block; }
+
+    /* ═══════════════ CONTACTS SCREEN ═══════════════ */
+    .contacts-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+    }
+    .contact-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px 14px; display: flex; flex-direction: column; align-items: center;
+      gap: 6px; cursor: pointer; transition: all 0.2s; text-align: center;
+    }
+    .contact-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+    .contact-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; font-weight: 600; color: white;
+    }
+    .contact-card-name { font-weight: 600; font-size: 0.88rem; }
+    .contact-card-org  { font-size: 0.72rem; color: var(--muted); }
+    .contact-card-count { font-family: var(--font-mono); font-size: 0.68rem; color: var(--accent2); margin-top: 2px; }
+    .contacts-search {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      display: flex; align-items: center; padding: 0 12px; gap: 8px;
+    }
+    .contacts-search:focus-within { border-color: var(--accent2); }
+    .contacts-search input { flex: 1; padding: 10px 0; font-size: 0.88rem; color: var(--text); }
+    .contacts-search input::placeholder { color: var(--muted); }
+
+    /* ═══════════════ FORM ═══════════════ */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 500; }
+    .form-input {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 10px 14px; color: var(--text); font-size: 0.9rem; transition: border-color 0.15s; width: 100%;
+    }
+    .form-input:focus { border-color: var(--accent2); }
+    .form-input::placeholder { color: var(--muted); }
+    textarea.form-input { resize: vertical; min-height: 120px; line-height: 1.6; font-family: var(--font-serif); }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .form-group { flex: 1; }
+
+    /* tag input */
+    .tag-input-wrap {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 6px; min-height: 42px;
+      align-items: flex-start; transition: border-color 0.15s; cursor: text;
+    }
+    .tag-input-wrap:focus-within { border-color: var(--accent2); }
+    .tag-input-wrap input { border: none; background: none; color: var(--text); font-size: 0.85rem; min-width: 80px; flex: 1; padding: 2px 4px; }
+    .tag-input-wrap input::placeholder { color: var(--muted); }
+    .tag-item { display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-family: var(--font-mono); }
+    .tag-item.is-tag { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+    .tag-item.is-emotion { background: rgba(124,111,205,0.15); border: 1px solid rgba(124,111,205,0.3); color: var(--accent2); }
+    .remove-tag { background: none; color: inherit; opacity: 0.6; font-size: 0.8rem; line-height: 1; padding: 0 1px; }
+    .remove-tag:hover { opacity: 1; }
+
+    /* emotion picker */
+    .emotion-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .emotion-btn {
+      padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted); font-size: 0.78rem; transition: all 0.15s;
+    }
+    .emotion-btn.selected { background: rgba(124,111,205,0.2); border-color: var(--accent2); color: var(--accent2); }
+    .emotion-btn:hover { border-color: var(--accent2); }
+
+    /* ─── PERSON PICKER ─── */
+    #personPickerWrap { position: relative; }
+    .person-picker-selected {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 6px; min-height: 42px;
+      align-items: flex-start; cursor: text;
+      transition: border-color 0.15s;
+    }
+    #personPickerWrap:focus-within .person-picker-selected { border-color: var(--accent2); }
+    .person-search-input {
+      border: none; background: none; color: var(--text); font-size: 0.85rem; min-width: 100px; flex: 1; padding: 2px 4px;
+    }
+    .person-search-input::placeholder { color: var(--muted); }
+    .person-picker-dropdown {
+      display: none;
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      max-height: 200px; overflow-y: auto; z-index: 200; box-shadow: var(--shadow);
+    }
+    .picker-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; cursor: pointer; transition: background 0.1s;
+    }
+    .picker-item:hover { background: var(--surface2); }
+    .picker-avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 600; color: white;
+    }
+    .picker-info { min-width: 0; }
+    .picker-name { font-size: 0.85rem; font-weight: 500; }
+    .picker-org  { font-size: 0.72rem; color: var(--muted); }
+    .picker-empty { padding: 12px; font-size: 0.8rem; color: var(--muted); text-align: center; }
+
+    /* ai suggest */
+    .ai-suggest-box {
+      background: rgba(124,111,205,0.07); border: 1px solid rgba(124,111,205,0.2);
+      border-radius: var(--radius-sm); padding: 12px 14px; display: none; gap: 8px; flex-direction: column;
+    }
+    .ai-suggest-box.show { display: flex; }
+    .ai-suggest-label { font-size: 0.7rem; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 500; }
+    .ai-suggest-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ai-chip {
+      padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-family: var(--font-mono);
+      background: rgba(124,111,205,0.12); border: 1px solid rgba(124,111,205,0.3);
+      color: var(--accent2); cursor: pointer; transition: all 0.15s;
+    }
+    .ai-chip:hover { background: rgba(124,111,205,0.25); }
+    .ai-chip.used { opacity: 0.4; pointer-events: none; }
+
+    /* buttons */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent2), #6559bb); color: white;
+      font-weight: 600; font-size: 0.92rem; padding: 13px; border-radius: var(--radius-sm);
+      transition: all 0.2s; letter-spacing: 0.02em; box-shadow: 0 4px 16px rgba(124,111,205,0.35);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124,111,205,0.5); }
+    .btn-primary:disabled { opacity: 0.5; pointer-events: none; }
+    .btn-secondary {
+      background: var(--surface2); color: var(--text); font-weight: 500; font-size: 0.85rem;
+      padding: 10px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); transition: all 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+    .btn-danger {
+      background: rgba(224,112,112,0.1); color: var(--danger); font-size: 0.82rem;
+      padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid rgba(224,112,112,0.3); transition: all 0.15s;
+    }
+    .btn-danger:hover { background: rgba(224,112,112,0.2); }
+
+    /* ═══════════════ SETTINGS ═══════════════ */
+    .settings-section {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .settings-title {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted); font-weight: 600; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .settings-hint { font-size: 0.75rem; color: var(--muted); font-style: italic; }
+    .toggle { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-slider {
+      position: absolute; inset: 0; background: var(--border); border-radius: 12px; cursor: pointer; transition: 0.2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; left: 3px; top: 3px;
+      width: 18px; height: 18px; border-radius: 50%; background: white; transition: 0.2s;
+    }
+    .toggle input:checked + .toggle-slider { background: var(--accent2); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.85rem; }
+    .settings-row label { color: var(--muted); flex-shrink: 0; }
+    .btn-save-settings {
+      background: var(--accent2); color: white; font-weight: 600;
+      padding: 11px; border-radius: var(--radius-sm); transition: opacity 0.15s; font-size: 0.88rem;
+    }
+    .btn-save-settings:hover { opacity: 0.85; }
+    .export-row { display: flex; gap: 8px; }
+    .export-row button { flex: 1; }
+
+    /* ═══════════════ MODAL (memory detail) ═══════════════ */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 500;
+      display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(4px);
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius) var(--radius) 0 0;
+      width: 100%; max-width: 600px; max-height: 85dvh; overflow-y: auto;
+      padding: 24px 20px; display: flex; flex-direction: column; gap: 14px;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { transform:translateY(40px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+    .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: -10px auto 4px; }
+    .modal-title { font-family: var(--font-serif); font-size: 1.05rem; font-weight: 600; }
+    .modal-content-text { font-family: var(--font-serif); line-height: 1.75; font-size: 0.95rem; }
+    .modal-lesson {
+      font-size: 0.82rem; color: var(--muted); font-style: italic;
+      padding: 10px 14px; border-left: 2px solid var(--accent);
+      background: rgba(201,169,110,0.07); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .modal-actions { display: flex; gap: 8px; margin-top: 6px; }
+    .modal-actions button { flex: 1; }
+
+    /* ═══════════════ CONTACT DETAIL MODAL ═══════════════ */
+    #contactDetailModal .modal { gap: 12px; }
+    .cd-header { display: flex; align-items: center; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .cd-avatar {
+      width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; font-weight: 700; color: white;
+    }
+    .cd-info { flex: 1; min-width: 0; }
+    .cd-name { font-family: var(--font-serif); font-size: 1.1rem; font-weight: 600; }
+    .cd-org  { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .cd-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent2); margin-top: 4px; }
+    .cd-memories { display: flex; flex-direction: column; gap: 8px; }
+    .cd-section-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+
+    /* ═══════════════ TAB ═══════════════ */
+    .tab-row { display: flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+    .tab-btn { flex: 1; padding: 8px; font-size: 0.78rem; font-weight: 500; color: var(--muted); background: var(--surface); transition: all 0.15s; }
+    .tab-btn.active { background: var(--accent2); color: white; }
+
+    /* ═══════════════ MISC ═══════════════ */
+    .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
+    .spinner {
+      width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent2);
+      border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-row { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.82rem; }
+
+    /* ═══════════════ TOAST ═══════════════ */
+    #toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      padding: 10px 20px; border-radius: 30px; font-size: 0.82rem; font-weight: 500;
+      box-shadow: var(--shadow); z-index: 999; opacity: 0; pointer-events: none;
+      white-space: nowrap; transition: opacity 0.2s;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <h1>🐉 Ký Ức</h1>
+    <div class="header-actions">
+      <button class="btn-icon" id="btnTheme">🌙</button>
+    </div>
+  </header>
+
+  <!-- ══════════ SCREEN: HOME ══════════ -->
+  <section class="screen active" id="screen-home">
+    <div class="random-area">
+      <div class="stats-row">
+        <div class="stat-pill"><div class="num" id="stat-total">—</div><div class="label">Ký ức</div></div>
+        <div class="stat-pill"><div class="num" id="stat-people">—</div><div class="label">Người</div></div>
+        <div class="stat-pill"><div class="num" id="stat-tags">—</div><div class="label">Tags</div></div>
+      </div>
+      <div id="random-display" style="width:100%">
+        <p class="empty-state">Nhấn nút bên dưới để gợi lại một ký ức…</p>
+      </div>
+      <button class="btn-recall" id="btnRecall">✦ Gợi ký ức</button>
+    </div>
+  </section>
+
+  <!-- ══════════ SCREEN: LIST ══════════ -->
+  <section class="screen" id="screen-list">
+    <div class="screen-body">
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchListTab('memories',this)">Ký ức</button>
+        <button class="tab-btn" onclick="switchListTab('contacts',this)">Contacts (linked)</button>
+      </div>
+
+      <!-- Memories tab -->
+      <div id="tab-memories">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="search-bar">
+            <div class="search-input-wrap">
+              <span style="color:var(--muted);font-size:0.9rem">🔍</span>
+              <input type="text" id="searchInput" placeholder="Tìm theo nội dung, người, tổ chức…" />
+            </div>
+            <button class="btn-ai-search" id="btnAISearch">✦ AI</button>
+          </div>
+          <div class="ai-result-banner" id="aiBanner"></div>
+          <div class="filter-row" id="filterRow">
+            <button class="filter-chip active" onclick="applyFilter('all',this)">Tất cả</button>
+          </div>
+          <div class="memories-list" id="memoriesList">
+            <div class="loading-row"><span class="spinner"></span> Đang tải…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contacts (linked) tab — show contacts that appear in memories -->
+      <div id="tab-contacts" style="display:none">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <p style="font-size:0.78rem;color:var(--muted);font-style:italic">
+            Contacts được liên kết trong ký ức. Quản lý contacts tại app Contacts gốc.
+          </p>
+          <div class="contacts-grid" id="linkedContactsList">
+            <div class="loading-row" style="grid-column:1/-1"><span class="spinner"></span> Đang tải…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ SCREEN: CONTACTS ══════════ -->
+  <section class="screen" id="screen-contacts">
+    <div class="screen-body">
+      <p class="section-title">👥 Tất cả Contacts</p>
+      <div class="contacts-search">
+        <span style="color:var(--muted);font-size:0.9rem">🔍</span>
+        <input type="text" id="contactSearchInput" placeholder="Tìm theo tên, tổ chức…" oninput="filterContactsGrid(this.value)" />
+      </div>
+      <div class="contacts-grid" id="contactsGrid">
+        <div class="loading-row" style="grid-column:1/-1"><span class="spinner"></span> Đang tải…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ SCREEN: ADD ══════════ -->
+  <section class="screen" id="screen-add">
+    <div class="screen-body">
+      <p class="section-title" id="addFormTitle">Tạo ký ức mới</p>
+
+      <div class="form-group">
+        <label class="form-label">Nội dung ký ức *</label>
+        <textarea class="form-input" id="memContent" placeholder="Viết ký ức của bạn…" rows="5"></textarea>
+      </div>
+
+      <button class="btn-secondary" id="btnAISuggest" style="font-size:0.8rem;padding:8px 14px;align-self:flex-start">
+        ✦ Gợi ý AI
+      </button>
+
+      <div class="ai-suggest-box" id="aiSuggestBox">
+        <p class="ai-suggest-label">✦ AI gợi ý</p>
+        <div><p style="font-size:0.72rem;color:var(--muted);margin-bottom:4px">Tags</p><div class="ai-suggest-chips" id="suggestTags"></div></div>
+        <div><p style="font-size:0.72rem;color:var(--muted);margin-bottom:4px">Cảm xúc</p><div class="ai-suggest-chips" id="suggestEmotions"></div></div>
+        <div id="suggestLessonWrap" style="display:none"><p style="font-size:0.72rem;color:var(--muted);margin-bottom:4px">Bài học</p><div class="ai-suggest-chips" id="suggestLesson"></div></div>
+        <div id="suggestPeopleWrap" style="display:none"><p style="font-size:0.72rem;color:var(--muted);margin-bottom:4px">Người liên quan</p><div class="ai-suggest-chips" id="suggestPeople"></div></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Năm</label>
+          <input type="number" class="form-input" id="memYear" placeholder="2020" min="1900" max="2100" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ngày (tuỳ chọn)</label>
+          <input type="date" class="form-input" id="memDate" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tags</label>
+        <div class="tag-input-wrap" id="tagInputWrap" onclick="document.getElementById('tagRawInput').focus()">
+          <input type="text" id="tagRawInput" placeholder="Nhập tag, Enter để thêm…" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Cảm xúc</label>
+        <div class="emotion-grid" id="emotionGrid"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Người liên quan</label>
+        <div id="personPickerWrap">
+          <!-- selected chips + search input -->
+          <div class="person-picker-selected" onclick="document.getElementById('personSearchInput').focus()">
+            <div id="personPickerSelected" style="display:contents"></div>
+            <input type="text" class="person-search-input" id="personSearchInput" placeholder="Tìm tên, tổ chức…" autocomplete="off" />
+          </div>
+          <!-- dropdown -->
+          <div class="person-picker-dropdown" id="personPickerDropdown">
+            <div class="picker-results" id="personPickerResults">
+              <div class="picker-empty">Bắt đầu gõ để tìm contact…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Bài học rút ra (tuỳ chọn)</label>
+        <textarea class="form-input" id="memLesson" placeholder="Nhớ gì từ ký ức này?" rows="2"></textarea>
+      </div>
+
+      <button class="btn-primary" id="btnSaveMemory" onclick="saveMemory()">Lưu ký ức</button>
+      <button class="btn-secondary" id="btnCancelEdit" style="display:none" onclick="cancelEdit()">Huỷ chỉnh sửa</button>
+    </div>
+  </section>
+
+  <!-- ══════════ SCREEN: SETTINGS ══════════ -->
+  <section class="screen" id="screen-settings">
+    <div class="screen-body">
+      <div class="settings-section">
+        <p class="settings-title">☁️ Supabase</p>
+        <div class="form-group"><label class="form-label">URL</label>
+          <input type="text" class="form-input" id="cfgSupabaseUrl" placeholder="https://xxx.supabase.co" /></div>
+        <div class="form-group"><label class="form-label">Anon Key</label>
+          <input type="password" class="form-input" id="cfgSupabaseKey" placeholder="eyJ…" /></div>
+      </div>
+
+      <div class="settings-section">
+        <p class="settings-title">👥 Contacts App</p>
+        <div class="form-group">
+          <label class="form-label">Contacts App ID</label>
+          <input type="text" class="form-input" id="cfgContactsAppId" placeholder="contacts_app_v1" />
+        </div>
+        <p class="settings-hint">id_app của app Contacts gốc (khác với Memory App ID). Để trống nếu cùng id_app.</p>
+      </div>
+
+      <div class="settings-section">
+        <p class="settings-title">🤖 AI (Groq)</p>
+        <div class="form-group"><label class="form-label">API Key</label>
+          <input type="password" class="form-input" id="cfgGroqKey" placeholder="gsk_…" /></div>
+        <div class="settings-row">
+          <label>Bật AI</label>
+          <label class="toggle"><input type="checkbox" id="cfgEnableAI" checked /><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <p class="settings-title">👤 Identity</p>
+        <div class="form-group"><label class="form-label">User ID</label>
+          <input type="text" class="form-input" id="cfgUserId" placeholder="RongLeo" /></div>
+        <div class="form-group"><label class="form-label">App ID (Memory)</label>
+          <input type="text" class="form-input" id="cfgAppId" placeholder="memory_app_v1" /></div>
+      </div>
+
+      <button class="btn-save-settings" onclick="saveSettings()">💾 Lưu cài đặt</button>
+
+      <div class="settings-section">
+        <p class="settings-title">🌙 Giao diện</p>
+        <div class="settings-row">
+          <label>Dark mode</label>
+          <label class="toggle"><input type="checkbox" id="cfgDarkMode" checked onchange="toggleTheme()" /><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <p class="settings-title">📤 Dữ liệu</p>
+        <div class="export-row">
+          <button class="btn-secondary" onclick="exportData()">⬇ Export JSON</button>
+          <button class="btn-secondary" onclick="document.getElementById('importFile').click()">⬆ Import JSON</button>
+          <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)" />
+        </div>
+        <button class="btn-danger" onclick="clearAllData()" style="width:100%;margin-top:4px">🗑 Xoá memories local</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- NAV BAR -->
+  <nav class="nav-bar">
+    <button class="nav-btn active" data-screen="home"     onclick="navigate('home',this)"><span class="nav-icon">✦</span><span>Gợi nhớ</span></button>
+    <button class="nav-btn"        data-screen="list"     onclick="navigate('list',this)"><span class="nav-icon">📜</span><span>Danh sách</span></button>
+    <button class="nav-btn"        data-screen="add"      onclick="navigate('add',this)"><span class="nav-icon">✍</span><span>Tạo mới</span></button>
+    <button class="nav-btn"        data-screen="contacts" onclick="navigate('contacts',this)"><span class="nav-icon">👥</span><span>Contacts</span></button>
+    <button class="nav-btn"        data-screen="settings" onclick="navigate('settings',this)"><span class="nav-icon">⚙️</span><span>Cài đặt</span></button>
+  </nav>
+</div>
+
+<!-- MODAL: Memory Detail -->
+<div class="modal-overlay" id="memoryModal" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalDate"></div>
+    <div class="modal-content-text" id="modalContent"></div>
+    <div id="modalLesson"></div>
+    <div id="modalTags" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="editMemory()">✏️ Sửa</button>
+      <button class="btn-danger"    onclick="deleteMemoryFromModal()">🗑 Xoá</button>
+      <button class="btn-secondary" onclick="closeModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Contact Detail -->
+<div class="modal-overlay" id="contactDetailModal" onclick="closeContactDetail(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="cd-header">
+      <div class="cd-avatar" id="cdAvatar">?</div>
+      <div class="cd-info">
+        <div class="cd-name"  id="cdName"></div>
+        <div class="cd-org"   id="cdOrg"></div>
+        <div class="cd-count" id="cdCount"></div>
+      </div>
+    </div>
+    <p class="cd-section-label">Ký ức liên quan</p>
+    <div class="cd-memories" id="cdMemories"></div>
+    <button class="btn-secondary" onclick="closeContactDetail()">Đóng</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+  /* Linked contacts tab — render contacts that appear in memories */
+  function renderLinkedContacts() {
+    const grid = document.getElementById("linkedContactsList");
+    const linkedIds = new Set((window.memories||[]).flatMap(m => m.related_people_ids||[]));
+    const linked = (window.contacts||[]).filter(c => linkedIds.has(c.id));
+    if (!linked.length) {
+      grid.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;grid-column:1/-1;padding:12px 0">Chưa có ký ức nào gắn contact.</p>`;
+      return;
+    }
+    const memCount = {};
+    (window.memories||[]).forEach(m => (m.related_people_ids||[]).forEach(id => { memCount[id]=(memCount[id]||0)+1; }));
+    grid.innerHTML = linked.map(c => `
+      <div class="contact-card" onclick="openContactDetail('${c.id}')">
+        <div class="contact-avatar">${c.name.charAt(0).toUpperCase()}</div>
+        <div class="contact-card-name">${c.name.replace(/</g,"&lt;")}</div>
+        ${c.org ? `<div class="contact-card-org">${c.org.replace(/</g,"&lt;")}</div>` : ""}
+        <div class="contact-card-count">${memCount[c.id]||0} ký ức</div>
+      </div>`).join("");
+  }
+
+  /* Patch switchListTab to also render linked contacts */
+  const _origSwitchListTab = window.switchListTab;
+  document.addEventListener("DOMContentLoaded", () => {
+    const origFn = window.switchListTab;
+    window.switchListTab = function(tab, btn) {
+      origFn(tab, btn);
+      if (tab === "contacts") renderLinkedContacts();
+    };
+
+    /* Contact grid search filter */
+    window.filterContactsGrid = function(q) {
+      q = q.toLowerCase();
+      const all = window.contacts || [];
+      const filtered = q ? all.filter(c =>
+        c.name.toLowerCase().includes(q) || (c.org||"").toLowerCase().includes(q)) : all;
+      window._filteredContactsForGrid = filtered;
+      renderContactsGridFiltered(filtered);
+    };
+
+    function renderContactsGridFiltered(list) {
+      const grid = document.getElementById("contactsGrid");
+      if (!list.length) {
+        grid.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;grid-column:1/-1;text-align:center;padding:24px 0">Không tìm thấy.</p>`;
+        return;
+      }
+      const memCount = {};
+      (window.memories||[]).forEach(m => (m.related_people_ids||[]).forEach(id => { memCount[id]=(memCount[id]||0)+1; }));
+      grid.innerHTML = list.map(c => `
+        <div class="contact-card" onclick="openContactDetail('${c.id}')">
+          <div class="contact-avatar">${c.name.charAt(0).toUpperCase()}</div>
+          <div class="contact-card-name">${c.name.replace(/</g,"&lt;")}</div>
+          ${c.org ? `<div class="contact-card-org">${c.org.replace(/</g,"&lt;")}</div>` : ""}
+          <div class="contact-card-count">${memCount[c.id] ? `${memCount[c.id]} ký ức` : "—"}</div>
+        </div>`).join("");
+    }
+
+    /* Patch renderContactsGrid to also support search state */
+    const origRender = window.renderContactsGrid;
+    window.renderContactsGrid = function() {
+      const q = (document.getElementById("contactSearchInput")||{}).value || "";
+      if (q) { window.filterContactsGrid(q); } else { origRender(); }
+    };
+
+    /* Patch openContactDetail to set avatar initial */
+    const origOpenCD = window.openContactDetail;
+    window.openContactDetail = function(id) {
+      origOpenCD(id);
+      const c = (window.contacts||[]).find(x => x.id === id);
+      if (c) document.getElementById("cdAvatar").textContent = c.name.charAt(0).toUpperCase();
+    };
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>
