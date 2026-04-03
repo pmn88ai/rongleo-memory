@@ -37,6 +37,10 @@ let currentModalMemory = null;
 let editingMemoryId    = null;
 let personSearch       = "";
 
+// Expose data arrays on window — accessible by any inline script
+Object.defineProperty(window, "memories", { get: () => memories, configurable: true });
+Object.defineProperty(window, "contacts", { get: () => contacts, configurable: true });
+
 const formState = { tags: [], emotions: [], people: [] };
 
 /* ─────────────────────────────────────────
@@ -68,6 +72,23 @@ window.addEventListener("DOMContentLoaded", () => {
   setupPersonPicker();
   setupSearch();
   loadAll();
+
+  // Safe DOM listeners — run after DOM is ready
+  document.getElementById("btnTheme").addEventListener("click", () => {
+    const cfg = document.getElementById("cfgDarkMode");
+    if (cfg) { cfg.checked = !cfg.checked; toggleTheme(); }
+  });
+
+  document.getElementById("btnRecall").addEventListener("click", () => {
+    if (!memories.length) { showToast("Chưa có ký ức nào!"); return; }
+    const m = memories[Math.floor(Math.random() * memories.length)];
+    renderRandomCard(m);
+  });
+
+  setupAISuggest();
+
+  // Show home screen on first load
+  navigate("home", document.querySelector('.nav-btn[data-screen="home"]'));
 });
 
 function loadConfigFromLS() {
@@ -104,6 +125,7 @@ function switchListTab(tab, btn) {
   btn.classList.add("active");
   document.getElementById("tab-memories").style.display = tab === "memories" ? "" : "none";
   document.getElementById("tab-contacts").style.display = tab === "contacts" ? "" : "none";
+  if (tab === "contacts") renderLinkedContacts();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -123,11 +145,6 @@ function toggleTheme() {
   localStorage.setItem("memory_dark_mode", isDark);
   document.getElementById("btnTheme").textContent = isDark ? "🌙" : "☀️";
 }
-
-document.getElementById("btnTheme").addEventListener("click", () => {
-  const cfg = document.getElementById("cfgDarkMode");
-  if (cfg) { cfg.checked = !cfg.checked; toggleTheme(); }
-});
 
 /* ═══════════════════════════════════════════════════════════
    SETTINGS
@@ -238,12 +255,6 @@ function updateStats() {
 /* ═══════════════════════════════════════════════════════════
    RANDOM RECALL
 ═══════════════════════════════════════════════════════════ */
-document.getElementById("btnRecall").addEventListener("click", () => {
-  if (!memories.length) { showToast("Chưa có ký ức nào!"); return; }
-  const m = memories[Math.floor(Math.random() * memories.length)];
-  renderRandomCard(m);
-});
-
 function renderRandomCard(m) {
   const el       = document.getElementById("random-display");
   const dateStr  = formatDate(m);
@@ -513,7 +524,11 @@ Format: {"keywords":[],"tags":[],"emotions":[],"people":[],"orgs":[]}
    CONTACTS SCREEN (read-only, click → detail)
 ═══════════════════════════════════════════════════════════ */
 function renderContactsGrid() {
+  const q = (document.getElementById("contactSearchInput") || {}).value || "";
+  if (q) { filterContactsGrid(q); return; }
+
   const grid = document.getElementById("contactsGrid");
+  if (!grid) return;
   if (!contacts.length) {
     grid.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;grid-column:1/-1;text-align:center;padding:32px 0">
       Chưa tải được contacts.<br><span style="font-size:0.75rem">Kiểm tra CONTACTS_APP_ID trong Cài đặt.</span></p>`;
@@ -539,18 +554,22 @@ function openContactDetail(contactId) {
   if (!c) return;
   const related = memories.filter(m => (m.related_people_ids || []).includes(contactId));
 
+  // set avatar initial
+  const avatarEl = document.getElementById("cdAvatar");
+  if (avatarEl) avatarEl.textContent = c.name.charAt(0).toUpperCase();
+
   document.getElementById("cdName").textContent  = c.name;
   const orgEl = document.getElementById("cdOrg");
-  orgEl.textContent  = c.org || "";
+  orgEl.textContent   = c.org || "";
   orgEl.style.display = c.org ? "" : "none";
   document.getElementById("cdCount").textContent = `${related.length} ký ức liên quan`;
 
   const list = document.getElementById("cdMemories");
   list.innerHTML = related.length
     ? related.map(m => {
-        const snippet = m.content.length > 100 ? m.content.slice(0,100) + "…" : m.content;
+        const snippet = m.content.length > 100 ? m.content.slice(0, 100) + "…" : m.content;
         const dateStr = formatDate(m);
-        const tags    = (m.tags || []).slice(0,2).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+        const tags    = (m.tags || []).slice(0, 2).map(t => `<span class="tag">${esc(t)}</span>`).join("");
         return `<div class="memory-card" onclick="closeContactDetail();openMemoryModal('${m.id}')">
           <div class="content">${esc(snippet)}</div>
           <div class="meta">${tags}${dateStr ? `<span class="memory-date">${dateStr}</span>` : ""}</div>
@@ -718,7 +737,10 @@ function cancelEdit() {
 /* ─────────────────────────────────────────
    AI SUGGEST (with people suggestion)
 ───────────────────────────────────────── */
-document.getElementById("btnAISuggest").addEventListener("click", async () => {
+function setupAISuggest() {
+  const btnEl = document.getElementById("btnAISuggest");
+  if (!btnEl) return;
+  btnEl.addEventListener("click", async () => {
   const content = document.getElementById("memContent").value.trim();
   if (!content) { showToast("Nhập nội dung ký ức trước"); return; }
   if (!CONFIG.GROQ_API_KEY || !CONFIG.ENABLE_AI) { showToast("Chưa cấu hình Groq"); return; }
@@ -789,7 +811,8 @@ Format:
 
   btn.innerHTML = "✦ Gợi ý AI";
   btn.disabled  = false;
-});
+  });
+}
 
 window.applyPersonSuggest = function(btn, contactId) {
   if (!formState.people.includes(contactId)) {
@@ -1034,6 +1057,55 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   LINKED CONTACTS TAB (formerly inline script)
+═══════════════════════════════════════════════════════════ */
+function renderLinkedContacts() {
+  const grid = document.getElementById("linkedContactsList");
+  if (!grid) return;
+  const linkedIds = new Set(memories.flatMap(m => m.related_people_ids || []));
+  const linked    = contacts.filter(c => linkedIds.has(c.id));
+  if (!linked.length) {
+    grid.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;grid-column:1/-1;padding:12px 0">Chưa có ký ức nào gắn contact.</p>`;
+    return;
+  }
+  const memCount = {};
+  memories.forEach(m => (m.related_people_ids || []).forEach(id => { memCount[id] = (memCount[id] || 0) + 1; }));
+  grid.innerHTML = linked.map(c => `
+    <div class="contact-card" onclick="openContactDetail('${c.id}')">
+      <div class="contact-avatar">${c.name.charAt(0).toUpperCase()}</div>
+      <div class="contact-card-name">${esc(c.name)}</div>
+      ${c.org ? `<div class="contact-card-org">${esc(c.org)}</div>` : ""}
+      <div class="contact-card-count">${memCount[c.id] || 0} ký ức</div>
+    </div>`).join("");
+}
+
+function renderContactsGridFiltered(list) {
+  const grid = document.getElementById("contactsGrid");
+  if (!grid) return;
+  if (!list.length) {
+    grid.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;grid-column:1/-1;text-align:center;padding:24px 0">Không tìm thấy.</p>`;
+    return;
+  }
+  const memCount = {};
+  memories.forEach(m => (m.related_people_ids || []).forEach(id => { memCount[id] = (memCount[id] || 0) + 1; }));
+  grid.innerHTML = list.map(c => `
+    <div class="contact-card" onclick="openContactDetail('${c.id}')">
+      <div class="contact-avatar">${c.name.charAt(0).toUpperCase()}</div>
+      <div class="contact-card-name">${esc(c.name)}</div>
+      ${c.org ? `<div class="contact-card-org">${esc(c.org)}</div>` : ""}
+      <div class="contact-card-count">${memCount[c.id] ? `${memCount[c.id]} ký ức` : "—"}</div>
+    </div>`).join("");
+}
+
+function filterContactsGrid(q) {
+  q = (q || "").toLowerCase();
+  const filtered = q
+    ? contacts.filter(c => c.name.toLowerCase().includes(q) || (c.org || "").toLowerCase().includes(q))
+    : contacts;
+  renderContactsGridFiltered(filtered);
+}
+
 /* ─── expose globals ─── */
 window.navigate              = navigate;
 window.switchListTab         = switchListTab;
@@ -1055,3 +1127,4 @@ window.importData            = importData;
 window.clearAllData          = clearAllData;
 window.openContactDetail     = openContactDetail;
 window.closeContactDetail    = closeContactDetail;
+window.filterContactsGrid    = filterContactsGrid;
