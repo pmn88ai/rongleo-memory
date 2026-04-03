@@ -60,6 +60,37 @@ function contactsAppId() {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   EXPOSE GLOBALS — must be above DOMContentLoaded so that
+   onclick="navigate(...)" attributes work immediately on click.
+   All functions below are hoisted (function declarations),
+   so assigning them here is safe even though their bodies
+   appear later in the file.
+═══════════════════════════════════════════════════════════ */
+window.navigate              = navigate;
+window.switchListTab         = switchListTab;
+window.applyFilter           = applyFilter;
+window.filterByPerson        = filterByPerson;
+window.openMemoryModal       = openMemoryModal;
+window.closeModal            = closeModal;
+window.editMemory            = editMemory;
+window.deleteMemoryFromModal = deleteMemoryFromModal;
+window.saveMemory            = saveMemory;
+window.cancelEdit            = cancelEdit;
+window.toggleEmotion         = toggleEmotion;
+window.togglePersonPick      = togglePersonPick;
+window.removeTag             = removeTag;
+window.saveSettings          = saveSettings;
+window.toggleTheme           = toggleTheme;
+window.exportData            = exportData;
+window.importData            = importData;
+window.clearAllData          = clearAllData;
+window.openContactDetail     = openContactDetail;
+window.closeContactDetail    = closeContactDetail;
+window.filterContactsGrid    = filterContactsGrid;
+window.applySuggest          = applySuggest;
+window.applyPersonSuggest    = applyPersonSuggest;
+
+/* ═══════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════ */
 window.addEventListener("DOMContentLoaded", () => {
@@ -814,7 +845,7 @@ Format:
   });
 }
 
-window.applyPersonSuggest = function(btn, contactId) {
+function applyPersonSuggest(btn, contactId) {
   if (!formState.people.includes(contactId)) {
     formState.people.push(contactId);
     personSearch = "";
@@ -822,7 +853,7 @@ window.applyPersonSuggest = function(btn, contactId) {
     renderPersonPicker();
   }
   btn.classList.add("used");
-};
+}
 
 function renderSuggestChips(containerId, items, onClickFn) {
   const container = document.getElementById(containerId);
@@ -832,11 +863,11 @@ function renderSuggestChips(containerId, items, onClickFn) {
   container._applyFn = onClickFn;
 }
 
-window.applySuggest = function(btn, value) {
+function applySuggest(btn, value) {
   const container = btn.closest(".ai-suggest-chips");
   container._applyFn(value);
   btn.classList.add("used");
-};
+}
 
 /* ─────────────────────────────────────────
    SAVE MEMORY
@@ -1106,25 +1137,4 @@ function filterContactsGrid(q) {
   renderContactsGridFiltered(filtered);
 }
 
-/* ─── expose globals ─── */
-window.navigate              = navigate;
-window.switchListTab         = switchListTab;
-window.applyFilter           = applyFilter;
-window.filterByPerson        = filterByPerson;
-window.openMemoryModal       = openMemoryModal;
-window.closeModal            = closeModal;
-window.editMemory            = editMemory;
-window.deleteMemoryFromModal = deleteMemoryFromModal;
-window.saveMemory            = saveMemory;
-window.cancelEdit            = cancelEdit;
-window.toggleEmotion         = toggleEmotion;
-window.togglePersonPick      = togglePersonPick;
-window.removeTag             = removeTag;
-window.saveSettings          = saveSettings;
-window.toggleTheme           = toggleTheme;
-window.exportData            = exportData;
-window.importData            = importData;
-window.clearAllData          = clearAllData;
-window.openContactDetail     = openContactDetail;
-window.closeContactDetail    = closeContactDetail;
-window.filterContactsGrid    = filterContactsGrid;
+/* ─── window.* exports are at the top of this file, above DOMContentLoaded ─── */
