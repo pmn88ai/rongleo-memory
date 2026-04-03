@@ -59,6 +59,27 @@ function contactsAppId() {
   return CONFIG.CONTACTS_APP_ID || null;
 }
 
+/* ─────────────────────────────────────────
+   g(id) — safe getElementById wrapper
+   Returns element if found, or a no-op stub so that
+   g("x").value = "y" and g("x").classList.add("z")
+   never throw even if element is absent.
+───────────────────────────────────────── */
+const _noopEl = new Proxy({}, {
+  get(_, prop) {
+    // Return a no-op function for any method call, empty string for .value etc.
+    if (prop === "value" || prop === "textContent" || prop === "innerHTML") return "";
+    if (prop === "checked") return false;
+    if (prop === "style")   return new Proxy({}, { set() { return true; } });
+    if (prop === "classList") return { add() {}, remove() {}, toggle() {} };
+    return () => {};
+  },
+  set() { return true; },
+});
+function g(id) {
+  return document.getElementById(id) || _noopEl;
+}
+
 /* ═══════════════════════════════════════════════════════════
    EXPOSE GLOBALS — must be above DOMContentLoaded so that
    onclick="navigate(...)" attributes work immediately on click.
@@ -104,13 +125,15 @@ window.addEventListener("DOMContentLoaded", () => {
   setupSearch();
   loadAll();
 
-  // Safe DOM listeners — run after DOM is ready
-  document.getElementById("btnTheme").addEventListener("click", () => {
+  // Safe DOM listeners — every getElementById null-checked before use
+  const btnTheme = document.getElementById("btnTheme");
+  if (btnTheme) btnTheme.addEventListener("click", () => {
     const cfg = document.getElementById("cfgDarkMode");
     if (cfg) { cfg.checked = !cfg.checked; toggleTheme(); }
   });
 
-  document.getElementById("btnRecall").addEventListener("click", () => {
+  const btnRecall = document.getElementById("btnRecall");
+  if (btnRecall) btnRecall.addEventListener("click", () => {
     if (!memories.length) { showToast("Chưa có ký ức nào!"); return; }
     const m = memories[Math.floor(Math.random() * memories.length)];
     renderRandomCard(m);
@@ -119,7 +142,8 @@ window.addEventListener("DOMContentLoaded", () => {
   setupAISuggest();
 
   // Show home screen on first load
-  navigate("home", document.querySelector('.nav-btn[data-screen="home"]'));
+  const homeNavBtn = document.querySelector('.nav-btn[data-screen="home"]');
+  navigate("home", homeNavBtn);
 });
 
 function loadConfigFromLS() {
@@ -153,9 +177,11 @@ function navigate(screenId, btn) {
 
 function switchListTab(tab, btn) {
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-  document.getElementById("tab-memories").style.display = tab === "memories" ? "" : "none";
-  document.getElementById("tab-contacts").style.display = tab === "contacts" ? "" : "none";
+  if (btn) btn.classList.add("active");
+  const mem = document.getElementById("tab-memories");
+  const con = document.getElementById("tab-contacts");
+  if (mem) mem.style.display = tab === "memories" ? "" : "none";
+  if (con) con.style.display = tab === "contacts" ? "" : "none";
   if (tab === "contacts") renderLinkedContacts();
 }
 
@@ -167,37 +193,43 @@ function applyThemeFromLS() {
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
   const el = document.getElementById("cfgDarkMode");
   if (el) el.checked = dark;
-  document.getElementById("btnTheme").textContent = dark ? "🌙" : "☀️";
+  const btnTheme = document.getElementById("btnTheme");
+  if (btnTheme) btnTheme.textContent = dark ? "🌙" : "☀️";
 }
 
 function toggleTheme() {
-  const isDark = document.getElementById("cfgDarkMode").checked;
+  const cfg = document.getElementById("cfgDarkMode");
+  const isDark = cfg ? cfg.checked : false;
   document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
   localStorage.setItem("memory_dark_mode", isDark);
-  document.getElementById("btnTheme").textContent = isDark ? "🌙" : "☀️";
+  const btnTheme = document.getElementById("btnTheme");
+  if (btnTheme) btnTheme.textContent = isDark ? "🌙" : "☀️";
 }
 
 /* ═══════════════════════════════════════════════════════════
    SETTINGS
 ═══════════════════════════════════════════════════════════ */
 function loadSettingsToUI() {
-  document.getElementById("cfgSupabaseUrl").value   = CONFIG.SUPABASE_URL || "";
-  document.getElementById("cfgSupabaseKey").value   = CONFIG.SUPABASE_ANON_KEY || "";
-  document.getElementById("cfgGroqKey").value       = CONFIG.GROQ_API_KEY || "";
-  document.getElementById("cfgEnableAI").checked    = CONFIG.ENABLE_AI !== false;
-  document.getElementById("cfgUserId").value        = CONFIG.USER_ID || "RongLeo";
-  document.getElementById("cfgAppId").value         = CONFIG.APP_ID || "memory_app_v1";
-  document.getElementById("cfgContactsAppId").value = CONFIG.CONTACTS_APP_ID || "";
+  const set = (id, val, prop = "value") => { const el = document.getElementById(id); if (el) el[prop] = val; };
+  set("cfgSupabaseUrl",    CONFIG.SUPABASE_URL || "");
+  set("cfgSupabaseKey",    CONFIG.SUPABASE_ANON_KEY || "");
+  set("cfgGroqKey",        CONFIG.GROQ_API_KEY || "");
+  set("cfgEnableAI",       CONFIG.ENABLE_AI !== false, "checked");
+  set("cfgUserId",         CONFIG.USER_ID || "RongLeo");
+  set("cfgAppId",          CONFIG.APP_ID || "memory_app_v1");
+  set("cfgContactsAppId",  CONFIG.CONTACTS_APP_ID || "");
 }
 
 function saveSettings() {
-  CONFIG.SUPABASE_URL      = document.getElementById("cfgSupabaseUrl").value.trim();
-  CONFIG.SUPABASE_ANON_KEY = document.getElementById("cfgSupabaseKey").value.trim();
-  CONFIG.GROQ_API_KEY      = document.getElementById("cfgGroqKey").value.trim();
-  CONFIG.ENABLE_AI         = document.getElementById("cfgEnableAI").checked;
-  CONFIG.USER_ID           = document.getElementById("cfgUserId").value.trim() || "RongLeo";
-  CONFIG.APP_ID            = document.getElementById("cfgAppId").value.trim() || "memory_app_v1";
-  CONFIG.CONTACTS_APP_ID   = document.getElementById("cfgContactsAppId").value.trim();
+  const get = (id, fallback = "") => (document.getElementById(id) || {}).value?.trim() ?? fallback;
+  const chk = (id, fallback = false) => { const el = document.getElementById(id); return el ? el.checked : fallback; };
+  CONFIG.SUPABASE_URL      = get("cfgSupabaseUrl");
+  CONFIG.SUPABASE_ANON_KEY = get("cfgSupabaseKey");
+  CONFIG.GROQ_API_KEY      = get("cfgGroqKey");
+  CONFIG.ENABLE_AI         = chk("cfgEnableAI", true);
+  CONFIG.USER_ID           = get("cfgUserId") || "RongLeo";
+  CONFIG.APP_ID            = get("cfgAppId") || "memory_app_v1";
+  CONFIG.CONTACTS_APP_ID   = get("cfgContactsAppId");
   localStorage.setItem(LS_KEY, JSON.stringify(CONFIG));
   initSupabase();
   loadAll();
@@ -277,10 +309,11 @@ function loadLocalFallback(key) {
    STATS
 ═══════════════════════════════════════════════════════════ */
 function updateStats() {
-  document.getElementById("stat-total").textContent  = memories.length;
-  document.getElementById("stat-people").textContent = contacts.length;
   const allTags = new Set(memories.flatMap(m => m.tags || []));
-  document.getElementById("stat-tags").textContent   = allTags.size;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("stat-total",  memories.length);
+  set("stat-people", contacts.length);
+  set("stat-tags",   allTags.size);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -332,7 +365,8 @@ function applyFilter(filter, btn) {
   activePersonFilter = filter.startsWith("person:") ? filter.slice(7) : null;
   document.querySelectorAll(".filter-chip").forEach(b => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
-  document.getElementById("aiBanner").classList.remove("show");
+  const banner = document.getElementById("aiBanner");
+  if (banner) banner.classList.remove("show");
   applyCurrentFilter();
 }
 
@@ -347,7 +381,8 @@ function filterByPerson(contactId) {
 }
 
 function applyCurrentFilter() {
-  const q = document.getElementById("searchInput").value.toLowerCase();
+  const searchEl = document.getElementById("searchInput");
+  const q = searchEl ? searchEl.value.toLowerCase() : "";
   filteredMemories = memories.filter(m => {
     let matchFilter = true;
     if (activeFilter !== "all") {
@@ -370,11 +405,13 @@ function applyCurrentFilter() {
 
 function renderMemoriesList() {
   const list = document.getElementById("memoriesList");
+  if (!list) return;
   if (!memories.length) {
     list.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;text-align:center;padding:24px 0">Chưa có ký ức nào. Tạo ký ức đầu tiên!</p>`;
     return;
   }
-  const source = (filteredMemories.length > 0 || activeFilter !== "all" || document.getElementById("searchInput").value)
+  const searchVal = (document.getElementById("searchInput") || {}).value || "";
+  const source = (filteredMemories.length > 0 || activeFilter !== "all" || searchVal)
     ? filteredMemories : memories;
   if (!source.length) {
     list.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;text-align:center;padding:24px 0">Không tìm thấy ký ức nào.</p>`;
@@ -396,9 +433,12 @@ function renderMemoriesList() {
 
 function setupSearch() {
   const input = document.getElementById("searchInput");
-  let t;
-  input.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => applyCurrentFilter(), 300); });
-  document.getElementById("btnAISearch").addEventListener("click", aiSearch);
+  if (input) {
+    let t;
+    input.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => applyCurrentFilter(), 300); });
+  }
+  const btnAISearch = document.getElementById("btnAISearch");
+  if (btnAISearch) btnAISearch.addEventListener("click", aiSearch);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -456,7 +496,8 @@ function matchContactsByName(names, orgs) {
    AI SEARCH (with people + org)
 ═══════════════════════════════════════════════════════════ */
 async function aiSearch() {
-  const q = document.getElementById("searchInput").value.trim();
+  const searchEl = document.getElementById("searchInput");
+  const q = searchEl ? searchEl.value.trim() : "";
   if (!q) { showToast("Nhập từ khoá để tìm kiếm"); return; }
   if (!CONFIG.GROQ_API_KEY || !CONFIG.ENABLE_AI) { applyCurrentFilter(); return; }
 
@@ -589,11 +630,11 @@ function openContactDetail(contactId) {
   const avatarEl = document.getElementById("cdAvatar");
   if (avatarEl) avatarEl.textContent = c.name.charAt(0).toUpperCase();
 
-  document.getElementById("cdName").textContent  = c.name;
+  g("cdName").textContent  = c.name;
   const orgEl = document.getElementById("cdOrg");
   orgEl.textContent   = c.org || "";
   orgEl.style.display = c.org ? "" : "none";
-  document.getElementById("cdCount").textContent = `${related.length} ký ức liên quan`;
+  g("cdCount").textContent = `${related.length} ký ức liên quan`;
 
   const list = document.getElementById("cdMemories");
   list.innerHTML = related.length
@@ -608,12 +649,12 @@ function openContactDetail(contactId) {
       }).join("")
     : `<p style="color:var(--muted);font-size:0.85rem;font-style:italic;padding:12px 0">Chưa có ký ức nào gắn với người này.</p>`;
 
-  document.getElementById("contactDetailModal").classList.add("show");
+  g("contactDetailModal").classList.add("show");
 }
 
 function closeContactDetail(e) {
   if (!e || e.target === document.getElementById("contactDetailModal")) {
-    document.getElementById("contactDetailModal").classList.remove("show");
+    g("contactDetailModal").classList.remove("show");
   }
 }
 
@@ -622,16 +663,19 @@ function closeContactDetail(e) {
 ═══════════════════════════════════════════════════════════ */
 function setupPersonPicker() {
   const input = document.getElementById("personSearchInput");
+  if (!input) return;
   input.addEventListener("input", () => {
     personSearch = input.value.toLowerCase();
     renderPersonPicker();
   });
   input.addEventListener("focus", () => {
-    document.getElementById("personPickerDropdown").style.display = "";
+    const dd = document.getElementById("personPickerDropdown");
+    if (dd) dd.style.display = "";
   });
   document.addEventListener("click", e => {
     if (!e.target.closest("#personPickerWrap")) {
-      document.getElementById("personPickerDropdown").style.display = "none";
+      const dd = document.getElementById("personPickerDropdown");
+      if (dd) dd.style.display = "none";
     }
   });
 }
@@ -639,6 +683,7 @@ function setupPersonPicker() {
 function renderPersonPicker() {
   const wrap    = document.getElementById("personPickerSelected");
   const results = document.getElementById("personPickerResults");
+  if (!wrap || !results) return;
   const selected = resolveContacts(formState.people);
 
   // selected chips
@@ -678,7 +723,7 @@ function togglePersonPick(id) {
   } else {
     formState.people.push(id);
   }
-  document.getElementById("personSearchInput").value = "";
+  g("personSearchInput").value = "";
   personSearch = "";
   renderPersonPicker();
 }
@@ -743,20 +788,20 @@ function renderTagWrap() {
 
 function resetAddForm() {
   editingMemoryId = null;
-  document.getElementById("memContent").value = "";
-  document.getElementById("memYear").value    = "";
-  document.getElementById("memDate").value    = "";
-  document.getElementById("memLesson").value  = "";
+  g("memContent").value = "";
+  g("memYear").value    = "";
+  g("memDate").value    = "";
+  g("memLesson").value  = "";
   formState.tags = []; formState.emotions = []; formState.people = [];
   renderTagWrap(); buildEmotionGrid();
   personSearch = "";
-  document.getElementById("personSearchInput").value = "";
-  document.getElementById("personPickerDropdown").style.display = "none";
+  g("personSearchInput").value = "";
+  g("personPickerDropdown").style.display = "none";
   renderPersonPicker();
-  document.getElementById("aiSuggestBox").classList.remove("show");
-  document.getElementById("addFormTitle").textContent  = "Tạo ký ức mới";
-  document.getElementById("btnSaveMemory").textContent = "Lưu ký ức";
-  document.getElementById("btnCancelEdit").style.display = "none";
+  g("aiSuggestBox").classList.remove("show");
+  g("addFormTitle").textContent  = "Tạo ký ức mới";
+  g("btnSaveMemory").textContent = "Lưu ký ức";
+  g("btnCancelEdit").style.display = "none";
 }
 
 function cancelEdit() {
@@ -772,7 +817,7 @@ function setupAISuggest() {
   const btnEl = document.getElementById("btnAISuggest");
   if (!btnEl) return;
   btnEl.addEventListener("click", async () => {
-  const content = document.getElementById("memContent").value.trim();
+  const content = g("memContent").value.trim();
   if (!content) { showToast("Nhập nội dung ký ức trước"); return; }
   if (!CONFIG.GROQ_API_KEY || !CONFIG.ENABLE_AI) { showToast("Chưa cấu hình Groq"); return; }
 
@@ -801,7 +846,7 @@ Format:
     const parsed = safeParseJSON(res);
     if (!parsed) throw new Error("parse fail");
 
-    document.getElementById("aiSuggestBox").classList.add("show");
+    g("aiSuggestBox").classList.add("show");
     renderSuggestChips("suggestTags", parsed.tags || [], t => addTag(t));
     renderSuggestChips("suggestEmotions", parsed.emotions || [], e => {
       if (!formState.emotions.includes(e)) {
@@ -816,7 +861,7 @@ Format:
     if (parsed.lesson) {
       lessonWrap.style.display = "";
       renderSuggestChips("suggestLesson", [parsed.lesson], l => {
-        document.getElementById("memLesson").value = l;
+        g("memLesson").value = l;
       });
     } else {
       lessonWrap.style.display = "none";
@@ -830,7 +875,7 @@ Format:
       .filter(Boolean);
     if (matchedPeople.length) {
       suggestPeopleWrap.style.display = "";
-      document.getElementById("suggestPeople").innerHTML = matchedPeople.map(c =>
+      g("suggestPeople").innerHTML = matchedPeople.map(c =>
         `<button type="button" class="ai-chip" onclick="applyPersonSuggest(this,'${c.id}')">👤 ${esc(c.name)}</button>`
       ).join("");
     } else {
@@ -849,7 +894,7 @@ function applyPersonSuggest(btn, contactId) {
   if (!formState.people.includes(contactId)) {
     formState.people.push(contactId);
     personSearch = "";
-    document.getElementById("personSearchInput").value = "";
+    g("personSearchInput").value = "";
     renderPersonPicker();
   }
   btn.classList.add("used");
@@ -873,7 +918,7 @@ function applySuggest(btn, value) {
    SAVE MEMORY
 ───────────────────────────────────────── */
 async function saveMemory() {
-  const content = document.getElementById("memContent").value.trim();
+  const content = g("memContent").value.trim();
   if (!content) { showToast("Nội dung không được trống"); return; }
 
   const btn = document.getElementById("btnSaveMemory");
@@ -882,11 +927,11 @@ async function saveMemory() {
   const payload = {
     id_user: CONFIG.USER_ID, id_app: CONFIG.APP_ID,
     content,
-    memory_date:        document.getElementById("memDate").value || null,
-    memory_year:        document.getElementById("memYear").value ? parseInt(document.getElementById("memYear").value) : null,
+    memory_date:        g("memDate").value || null,
+    memory_year:        g("memYear").value ? parseInt(g("memYear").value) : null,
     emotions:           [...formState.emotions],
     tags:               [...formState.tags],
-    lesson:             document.getElementById("memLesson").value.trim() || null,
+    lesson:             g("memLesson").value.trim() || null,
     related_people_ids: [...formState.people],
   };
 
@@ -929,9 +974,9 @@ function openMemoryModal(id) {
   const m = memories.find(x => x.id === id);
   if (!m) return;
   currentModalMemory = m;
-  document.getElementById("modalDate").textContent = formatDate(m) || "Không rõ ngày";
-  document.getElementById("modalContent").textContent = m.content;
-  document.getElementById("modalLesson").innerHTML = m.lesson
+  g("modalDate").textContent = formatDate(m) || "Không rõ ngày";
+  g("modalContent").textContent = m.content;
+  g("modalLesson").innerHTML = m.lesson
     ? `<div class="modal-lesson"><strong>💡 Bài học:</strong> ${esc(m.lesson)}</div>` : "";
 
   const tags     = (m.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join("");
@@ -941,13 +986,13 @@ function openMemoryModal(id) {
     .map(c => `<span class="tag person" style="cursor:pointer" title="Xem ký ức của ${esc(c.name)}" onclick="closeModal();filterByPerson('${c.id}')">👤 ${esc(c.name)}</span>`)
     .join("");
 
-  document.getElementById("modalTags").innerHTML = tags + emotions + people;
-  document.getElementById("memoryModal").classList.add("show");
+  g("modalTags").innerHTML = tags + emotions + people;
+  g("memoryModal").classList.add("show");
 }
 
 function closeModal(e) {
   if (!e || e.target === document.getElementById("memoryModal")) {
-    document.getElementById("memoryModal").classList.remove("show");
+    g("memoryModal").classList.remove("show");
     currentModalMemory = null;
   }
 }
@@ -957,10 +1002,10 @@ function editMemory() {
   const m = currentModalMemory;
   closeModal();
   editingMemoryId = m.id;
-  document.getElementById("memContent").value = m.content;
-  document.getElementById("memYear").value    = m.memory_year || "";
-  document.getElementById("memDate").value    = m.memory_date || "";
-  document.getElementById("memLesson").value  = m.lesson || "";
+  g("memContent").value = m.content;
+  g("memYear").value    = m.memory_year || "";
+  g("memDate").value    = m.memory_date || "";
+  g("memLesson").value  = m.lesson || "";
   formState.tags     = [...(m.tags || [])];
   formState.emotions = [...(m.emotions || [])];
   formState.people   = [...(m.related_people_ids || [])];
@@ -969,11 +1014,11 @@ function editMemory() {
     document.querySelectorAll(".emotion-btn").forEach(b => { if (b.dataset.emotion === e) b.classList.add("selected"); })
   );
   personSearch = "";
-  document.getElementById("personSearchInput").value = "";
+  g("personSearchInput").value = "";
   renderPersonPicker();
-  document.getElementById("addFormTitle").textContent  = "Chỉnh sửa ký ức";
-  document.getElementById("btnSaveMemory").textContent = "Cập nhật";
-  document.getElementById("btnCancelEdit").style.display = "";
+  g("addFormTitle").textContent  = "Chỉnh sửa ký ức";
+  g("btnSaveMemory").textContent = "Cập nhật";
+  g("btnCancelEdit").style.display = "";
   navigate("add", document.querySelector('.nav-btn[data-screen="add"]'));
 }
 
@@ -1030,7 +1075,7 @@ function clearAllData() {
   memories = [];
   saveLocalFallback(LS_LOCAL_MEMORIES, []);
   updateStats(); buildFilterRow();
-  document.getElementById("random-display").innerHTML =
+  g("random-display").innerHTML =
     `<p class="empty-state">Nhấn nút bên dưới để gợi lại một ký ức…</p>`;
   showToast("🗑 Đã xoá memories local");
 }
